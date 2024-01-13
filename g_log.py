@@ -39,9 +39,9 @@ class GLogger:
         self.log_queue = multiprocessing.Queue() if is_multiprocessing else None
         self.log_listener_process = None
 
-        if is_multiprocessing:
-            self.shutdown_event = multiprocessing.Event()  # Shutdown event
-            self.parent_pid = os.getpid()  # Get the PID of the main process
+        if self.is_multiprocessing:
+            self.main_alive_event = multiprocessing.Event()
+            self.main_alive_event.set()  # Initially set the event
 
             self.start_log_listener_process()
             self.glog = self.enqueue_log_message  # Set glog to enqueue log messages
@@ -70,7 +70,8 @@ class GLogger:
     def direct_log_message(self, level, message):
         timestamp = time.time()
         if level in self.loggers:
-            self.loggers[level].log(level, self.format_log_message(timestamp, message))
+            self.loggers[level].log(level, message)
+            # self.loggers[level].log(level, self.format_log_message(timestamp, message))
 
     def start_log_listener_process(self):
         self.log_listener_process = multiprocessing.Process(target=self.log_listener)
@@ -78,18 +79,15 @@ class GLogger:
         self.log_listener_process.start()
 
     def log_listener(self):
-        while not self.shutdown_event.is_set():
-            if not psutil.pid_exists(self.parent_pid):  # Check if the main process is alive
-                break  # Main process is gone, break the loop
+        while self.main_alive_event.is_set() or not self.log_queue.empty():
             try:
                 while not self.log_queue.empty():
                     level, message, timestamp = self.log_queue.get_nowait()
                     if level in self.loggers:
                         self.loggers[level].log(level, self.format_log_message(timestamp, message))
-
-                level, message, timestamp = self.log_queue.get(timeout=1)
-                if level in self.loggers:
-                    self.loggers[level].log(level, self.format_log_message(timestamp, message))
+                # level, message, timestamp = self.log_queue.get(timeout=1)
+                # if level in self.loggers:
+                #     self.loggers[level].log(level, self.format_log_message(timestamp, message))
             except Empty:
                 pass
             except Exception as e:
@@ -107,11 +105,13 @@ class GLogger:
 
 # Example usage
 if __name__ == "__main__":
-    g_logger = GLogger(is_multiprocessing=True, backupCount=60)
+    g_logger = GLogger(is_multiprocessing=False, backupCount=60)
 
     g_logger.glog(logging.INFO, "This is an info message.")
     g_logger.glog(logging.ERROR, "This is an error message.")
     # Add more log messages as needed
+    # for a in enumerate(range(0, 10 ** 6)):
+    #     g_logger.glog(logging.ERROR, f"This is error message - {a}")
 
     # Remember to terminate the log listener process when done
     # g_logger.stop_log_listener_process()
