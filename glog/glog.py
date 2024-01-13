@@ -67,7 +67,6 @@ class GLogger:
         self.log_queue.put((level, message, timestamp))
 
     def direct_log_message(self, message, level=logging.DEBUG):
-        timestamp = time.time()
         if level in self.loggers:
             self.loggers[level].log(level, message)
 
@@ -83,9 +82,6 @@ class GLogger:
                     level, message, timestamp = self.log_queue.get_nowait()
                     if level in self.loggers:
                         self.loggers[level].log(level, self.format_log_message(timestamp, message))
-                # level, message, timestamp = self.log_queue.get(timeout=1)
-                # if level in self.loggers:
-                #     self.loggers[level].log(level, self.format_log_message(timestamp, message))
             except Empty:
                 pass
             except Exception as e:
@@ -107,6 +103,7 @@ if __name__ == "__main__":
 
     g_logger.glog("This is an info message.", logging.INFO)
     g_logger.glog("This is an error message.", logging.ERROR)
+    g_logger.glog(message="This is an debug message.")
 
     print("End")
     exit()
