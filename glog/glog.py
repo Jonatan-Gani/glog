@@ -54,12 +54,16 @@ class GLogger:
         logger = logging.getLogger(f'g_logger_{level_name}')
         logger.setLevel(level_name)
 
-        handler = CustomTimedRotatingFileHandler(level_name, when='midnight', interval=1,
-                                                 backupCount=backupCount)
+        # Clear existing handlers
+        if logger.hasHandlers():
+            logger.handlers.clear()
+
+        handler = CustomTimedRotatingFileHandler(level_name, when='midnight', interval=1, backupCount=backupCount)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
-
         logger.addHandler(handler)
+
+
         return logger
 
     def enqueue_log_message(self, message, level=logging.DEBUG):
