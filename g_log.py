@@ -1,7 +1,6 @@
 import os
 import logging
 import time
-import psutil
 import multiprocessing
 
 from datetime import datetime
