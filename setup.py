@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='glog',
-    version='2',
+    name='g_log',
+    version='2.1',
     packages=find_packages(),
     description='Advanced logging solution',
     long_description=open('README.md').read(),
