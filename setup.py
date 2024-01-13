@@ -1,8 +1,8 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='g_log',
-    version='2.1',
+    name='glog',
+    version='2.2',
     packages=find_packages(),
     description='Advanced logging solution',
     long_description=open('README.md').read(),
@@ -11,7 +11,4 @@ setup(
     author_email='Jonatangani@protonmail.com',
     url='https://github.com/Jonatan-Gani/glog',
     # Add other parameters as needed
-    install_requires=[
-        'psutil'
-    ]
 )
