@@ -62,15 +62,14 @@ class GLogger:
         logger.addHandler(handler)
         return logger
 
-    def enqueue_log_message(self, level, message):
+    def enqueue_log_message(self, message, level=logging.DEBUG):
         timestamp = time.time()  # Capture the current timestamp
         self.log_queue.put((level, message, timestamp))
 
-    def direct_log_message(self, level, message):
+    def direct_log_message(self, message, level=logging.DEBUG):
         timestamp = time.time()
         if level in self.loggers:
             self.loggers[level].log(level, message)
-            # self.loggers[level].log(level, self.format_log_message(timestamp, message))
 
     def start_log_listener_process(self):
         self.log_listener_process = multiprocessing.Process(target=self.log_listener)
@@ -106,13 +105,8 @@ class GLogger:
 if __name__ == "__main__":
     g_logger = GLogger(is_multiprocessing=False, backupCount=60)
 
-    g_logger.glog(logging.INFO, "This is an info message.")
-    g_logger.glog(logging.ERROR, "This is an error message.")
-    # Add more log messages as needed
-    # for a in enumerate(range(0, 10 ** 6)):
-    #     g_logger.glog(logging.ERROR, f"This is error message - {a}")
+    g_logger.glog("This is an info message.", logging.INFO)
+    g_logger.glog("This is an error message.", logging.ERROR)
 
-    # Remember to terminate the log listener process when done
-    # g_logger.stop_log_listener_process()
     print("End")
     exit()
