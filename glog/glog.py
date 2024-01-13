@@ -10,7 +10,6 @@ from logging.handlers import TimedRotatingFileHandler
 
 class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
     def __init__(self, level_name, when, interval, backupCount):
-        # self.base_log_dir = base_log_dir
         self.level_name = level_name.lower()
         filename = self.get_daily_log_file_path()
         super().__init__(filename, when, interval, backupCount, encoding='utf8', delay=False)
@@ -22,9 +21,6 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
         return os.path.join(log_dir, f'{self.level_name}.log')
 
     def doRollover(self):
-        """
-        Override doRollover to modify the log file path dynamically based on the date
-        """
         self.baseFilename = self.get_daily_log_file_path()
         super().doRollover()
 
@@ -40,12 +36,12 @@ class GLogger:
 
         if self.is_multiprocessing:
             self.main_alive_event = multiprocessing.Event()
-            self.main_alive_event.set()  # Initially set the event
+            self.main_alive_event.set()
 
             self.start_log_listener_process()
-            self.glog = self.enqueue_log_message  # Set glog to enqueue log messages
+            self.glog = self.enqueue_log_message
         else:
-            self.glog = self.direct_log_message  # Set glog to log messages directly
+            self.glog = self.direct_log_message
 
         for level in self.LOG_LEVELS:
             self.loggers[level] = self.setup_logger_for_level(logging.getLevelName(level), backupCount)
@@ -54,7 +50,6 @@ class GLogger:
         logger = logging.getLogger(f'g_logger_{level_name}')
         logger.setLevel(level_name)
 
-        # Clear existing handlers
         if logger.hasHandlers():
             logger.handlers.clear()
 
@@ -63,11 +58,10 @@ class GLogger:
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-
         return logger
 
     def enqueue_log_message(self, message, level=logging.DEBUG):
-        timestamp = time.time()  # Capture the current timestamp
+        timestamp = time.time()
         self.log_queue.put((level, message, timestamp))
 
     def direct_log_message(self, message, level=logging.DEBUG):
@@ -103,6 +97,7 @@ class GLogger:
 
 # Example usage
 if __name__ == "__main__":
+    # Testing
     g_logger = GLogger(is_multiprocessing=False, backupCount=60)
 
     g_logger.glog("This is an info message.", logging.INFO)
