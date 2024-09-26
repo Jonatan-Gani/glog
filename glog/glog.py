@@ -76,6 +76,7 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
                             # Handle exceptions (e.g., permission issues) as needed
                             print(f"Error deleting old log directory '{day_path}': {e}")
 
+
 class GLogger:
     LOG_LEVELS = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
 
