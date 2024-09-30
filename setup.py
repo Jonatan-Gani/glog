@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='glog',
-    version='2.4',
+    version='2.5',
     packages=find_packages(),
     description='Advanced logging solution',
     long_description=open('README.md').read(),
