@@ -1,4 +1,5 @@
 import os
+import sys
 import logging
 import time
 import multiprocessing
@@ -35,6 +36,9 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
         """Delete log directories older than the retention period."""
         cutoff_date = datetime.now().date() - timedelta(days=self.log_retention_days)
         logs_base_dir = os.path.join(self.log_dir, 'Logs')
+
+        if not os.path.exists(logs_base_dir):
+            return  # No logs to clean up
 
         # Walk through the directory structure: Logs/YYYY/MMMM/DD
         for year_dir in os.listdir(logs_base_dir):
@@ -82,9 +86,14 @@ class GLogger:
     def __init__(self, backupCount=7, is_multiprocessing=False, log_dir=None, print_logs=False, log_retention_days=7):
         self.is_multiprocessing = is_multiprocessing
         self.loggers = {}
-        self.log_dir = log_dir or os.getcwd()
         self.print_logs = print_logs
         self.log_retention_days = log_retention_days
+
+        # Determine the default log directory
+        if log_dir is None:
+            self.log_dir = self.get_main_script_directory()
+        else:
+            self.log_dir = log_dir
 
         if self.is_multiprocessing:
             self.log_queue = multiprocessing.Queue()
@@ -95,6 +104,16 @@ class GLogger:
 
         for level in self.LOG_LEVELS:
             self.loggers[level] = self.setup_logger_for_level(level, backupCount)
+
+    def get_main_script_directory(self):
+        """Get the directory of the main script that is running."""
+        try:
+            # Get the path of the main script
+            main_script_path = os.path.abspath(sys.modules['__main__'].__file__)
+            return os.path.dirname(main_script_path)
+        except (AttributeError, KeyError):
+            # If we can't get the main script directory, default to the current working directory
+            return os.getcwd()
 
     def setup_logger_for_level(self, level, backupCount):
         level_name = logging.getLevelName(level)
