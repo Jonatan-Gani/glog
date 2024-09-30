@@ -1,9 +1,11 @@
 import os
 import logging
+import time
 import multiprocessing
 from datetime import datetime, timedelta
+from queue import Empty
 from logging.handlers import TimedRotatingFileHandler, QueueHandler, QueueListener
-
+import inspect
 
 class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
     def __init__(self, level_name, when, interval, backupCount, log_dir, log_retention_days):
@@ -66,16 +68,13 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
                                     os.remove(file_path)
                             # Remove the day directory
                             os.rmdir(day_path)
-                            # If the month directory is empty after removing the day directory, remove it
+                            # Remove month and year directories if empty
                             if not os.listdir(month_path):
                                 os.rmdir(month_path)
-                            # If the year directory is empty after removing the month directory, remove it
                             if not os.listdir(year_path):
                                 os.rmdir(year_path)
                         except Exception as e:
-                            # Handle exceptions (e.g., permission issues) as needed
                             print(f"Error deleting old log directory '{day_path}': {e}")
-
 
 class GLogger:
     LOG_LEVELS = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
@@ -114,7 +113,8 @@ class GLogger:
             log_dir=self.log_dir,
             log_retention_days=self.log_retention_days
         )
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        # Include caller_filename in the formatter
+        formatter = logging.Formatter('%(asctime)s - %(caller_filename)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(formatter)
 
         # Add handlers based on multiprocessing
@@ -136,12 +136,33 @@ class GLogger:
     def enqueue_log_message(self, message, level=logging.DEBUG):
         logger = self.loggers.get(level)
         if logger:
-            logger.log(level, message)
+            # Get caller's frame and filename
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back
+            filename = os.path.basename(caller_frame.f_code.co_filename)
+            lineno = caller_frame.f_lineno
+            # Create a LogRecord with extra data
+            record = logger.makeRecord(
+                logger.name,
+                level,
+                caller_frame.f_code.co_filename,
+                lineno,
+                message,
+                args=(),
+                exc_info=None,
+                extra={'caller_filename': filename}
+            )
+            self.log_queue.put(record)
 
     def direct_log_message(self, message, level=logging.DEBUG):
         logger = self.loggers.get(level)
         if logger:
-            logger.log(level, message)
+            # Get caller's frame and filename
+            frame = inspect.currentframe()
+            caller_frame = frame.f_back
+            filename = os.path.basename(caller_frame.f_code.co_filename)
+            # Log with extra data
+            logger.log(level, message, extra={'caller_filename': filename})
 
     def setup_logging_queue_listener(self):
         # Collect handlers from all loggers
@@ -162,11 +183,10 @@ class GLogger:
         if self.is_multiprocessing and self.queue_listener:
             self.queue_listener.stop()
 
-
 # Example usage
 if __name__ == "__main__":
     # Testing
-    g_logger = GLogger(is_multiprocessing=False, backupCount=7, print_logs=True, log_retention_days=7)
+    g_logger = GLogger(is_multiprocessing=False, backupCount=60, print_logs=True, log_retention_days=7)
 
     # Log some messages
     g_logger.glog("This is an info message.", logging.INFO)
