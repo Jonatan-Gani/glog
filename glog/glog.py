@@ -8,7 +8,7 @@ from queue import Empty
 from logging.handlers import TimedRotatingFileHandler, QueueHandler, QueueListener
 import inspect
 import json
-import requests  # Import the requests library for HTTP requests
+import requests
 
 
 class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
