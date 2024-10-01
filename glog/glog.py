@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 from queue import Empty
 from logging.handlers import TimedRotatingFileHandler, QueueHandler, QueueListener
 import inspect
+import json
+import requests  # Import the requests library for HTTP requests
+
 
 class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
     def __init__(self, level_name, when, interval, backupCount, log_dir, log_retention_days):
@@ -83,17 +86,34 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
 class GLogger:
     LOG_LEVELS = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
 
-    def __init__(self, backupCount=7, is_multiprocessing=False, log_dir=None, print_logs=False, log_retention_days=7):
+    def __init__(
+        self,
+        backupCount=7,
+        is_multiprocessing=False,
+        log_dir=None,
+        print_logs=False,
+        log_retention_days=7,
+        telegram_alert=False,
+        telegram_config_file='telegram_alert_config.json'
+    ):
         self.is_multiprocessing = is_multiprocessing
         self.loggers = {}
         self.print_logs = print_logs
         self.log_retention_days = log_retention_days
+        self.telegram_alert = telegram_alert
+        self.telegram_config_file = telegram_config_file
+        self.telegram_bot_token = None
+        self.telegram_user_ids = []
 
         # Determine the default log directory
         if log_dir is None:
             self.log_dir = self.get_main_script_directory()
         else:
             self.log_dir = log_dir
+
+        # Initialize Telegram bot if telegram_alert is True
+        if self.telegram_alert:
+            self.load_telegram_config()
 
         if self.is_multiprocessing:
             self.log_queue = multiprocessing.Queue()
@@ -104,6 +124,25 @@ class GLogger:
 
         for level in self.LOG_LEVELS:
             self.loggers[level] = self.setup_logger_for_level(level, backupCount)
+
+    def load_telegram_config(self):
+        """Load Telegram bot token and user IDs from the configuration file."""
+        try:
+            with open(self.telegram_config_file, 'r') as f:
+                config = json.load(f)
+            bot_token = config.get('bot_token')
+            user_ids = config.get('user_ids', [])
+
+            if not bot_token or not user_ids:
+                print("Telegram configuration file is missing 'bot_token' or 'user_ids'.")
+                self.telegram_alert = False
+                return
+
+            self.telegram_bot_token = bot_token
+            self.telegram_user_ids = user_ids
+        except Exception as e:
+            print(f"Failed to load Telegram configuration: {e}")
+            self.telegram_alert = False
 
     def get_main_script_directory(self):
         """Get the directory of the main script that is running."""
@@ -173,6 +212,10 @@ class GLogger:
             )
             self.log_queue.put(record)
 
+            # Send Telegram alert if applicable
+            if self.telegram_alert and level >= logging.ERROR:
+                self.send_telegram_alert(message, level)
+
     def direct_log_message(self, message, level=logging.DEBUG):
         logger = self.loggers.get(level)
         if logger:
@@ -182,6 +225,33 @@ class GLogger:
             filename = os.path.basename(caller_frame.f_code.co_filename)
             # Log with extra data
             logger.log(level, message, extra={'caller_filename': filename})
+
+            # Send Telegram alert if applicable
+            if self.telegram_alert and level >= logging.ERROR:
+                self.send_telegram_alert(message, level)
+
+    def send_telegram_alert(self, message, level):
+        """Send a log message as a Telegram alert to the specified users via HTTP requests."""
+        if not self.telegram_bot_token or not self.telegram_user_ids:
+            return  # Telegram bot is not initialized
+
+        level_name = logging.getLevelName(level)
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        alert_message = f"{timestamp} - {level_name} - {message}"
+
+        url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
+
+        for user_id in self.telegram_user_ids:
+            payload = {
+                'chat_id': user_id,
+                'text': alert_message
+            }
+            try:
+                response = requests.post(url, data=payload, timeout=10)
+                if response.status_code != 200:
+                    print(f"Failed to send Telegram alert to user {user_id}: {response.text}")
+            except requests.RequestException as e:
+                print(f"Failed to send Telegram alert to user {user_id}: {e}")
 
     def setup_logging_queue_listener(self):
         # Collect handlers from all loggers
@@ -199,18 +269,26 @@ class GLogger:
         self.queue_listener.start()
 
     def stop_logging_queue_listener(self):
-        if self.is_multiprocessing and self.queue_listener:
+        if self.is_multiprocessing and hasattr(self, 'queue_listener'):
             self.queue_listener.stop()
+
 
 # Example usage
 if __name__ == "__main__":
     # Testing
-    g_logger = GLogger(is_multiprocessing=False, backupCount=60, print_logs=True, log_retention_days=7)
+    g_logger = GLogger(
+        is_multiprocessing=False,
+        backupCount=60,
+        print_logs=True,
+        log_retention_days=7,
+        telegram_alert=True,
+        telegram_config_file='telegram_config.json'
+    )
 
     # Log some messages
     g_logger.glog("This is an info message.", logging.INFO)
     g_logger.glog("This is an error message.", logging.ERROR)
-    g_logger.glog("This is a debug message.", logging.DEBUG)
+    g_logger.glog("This is a critical message.", logging.CRITICAL)
 
     print("End")
     g_logger.stop_logging_queue_listener()
