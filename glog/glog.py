@@ -93,16 +93,15 @@ class GLogger:
         print_logs=False,
         log_retention_days=7,
         telegram_alert=False,
-        telegram_config_file='telegram_alert_config.json'
+        telegram_config_dir='telegram_config.json',
+        telegram_config=None
     ):
         self.is_multiprocessing = is_multiprocessing
         self.loggers = {}
         self.print_logs = print_logs
         self.log_retention_days = log_retention_days
         self.telegram_alert = telegram_alert
-        self.telegram_config_file = telegram_config_file
-        self.telegram_bot_token = None
-        self.telegram_user_ids = []
+        self.telegram_config = telegram_config
 
         # Determine the default log directory
         if log_dir is None:
@@ -111,7 +110,17 @@ class GLogger:
             self.log_dir = log_dir
 
         # Initialize Telegram bot if telegram_alert is True
+        self.telegram_bot_token = None
+        self.telegram_user_ids = []
         if self.telegram_alert:
+            # If no config dict given, go to config file (by default 'telegram_config.json')
+            if self.telegram_config is None:
+                # Load from the JSON file
+                with open(telegram_config_dir, 'r') as f:
+                    self.telegram_config = json.load(f)
+            elif not isinstance(self.telegram_config, dict):
+                # Raise an error if telegram_config is not a dict
+                raise TypeError("Config has to be of type: dict")
             self.load_telegram_config()
 
         if self.is_multiprocessing:
@@ -127,10 +136,8 @@ class GLogger:
     def load_telegram_config(self):
         """Load Telegram bot token and user IDs from the configuration file."""
         try:
-            with open(self.telegram_config_file, 'r') as f:
-                config = json.load(f)
-            bot_token = config.get('bot_token')
-            user_ids = config.get('user_ids', [])
+            bot_token = self.telegram_config.get('bot_token')
+            user_ids = self.telegram_config.get('user_id_ls', [])
 
             if not bot_token or not user_ids:
                 print("Telegram configuration file is missing 'bot_token' or 'user_ids'.")
