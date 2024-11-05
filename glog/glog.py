@@ -23,7 +23,6 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
         today = datetime.now().date()
         log_dir = os.path.join(
             self.log_dir,
-            'Logs',
             str(today.year),
             today.strftime('%B'),
             today.strftime('%d')
@@ -38,7 +37,7 @@ class CustomTimedRotatingFileHandler(TimedRotatingFileHandler):
     def cleanup_old_logs(self):
         """Delete log directories older than the retention period."""
         cutoff_date = datetime.now().date() - timedelta(days=self.log_retention_days)
-        logs_base_dir = os.path.join(self.log_dir, 'Logs')
+        logs_base_dir = os.path.join(self.log_dir)
 
         if not os.path.exists(logs_base_dir):
             return  # No logs to clean up
